@@ -1,0 +1,35 @@
+import time
+import itertools
+
+K = int(input("Введите количество чисел K: "))
+numbers = []
+for _ in range(K):
+    num = int(input("Введите число: "))
+    numbers.append(num)
+
+def permutations_recursive(arr, start=0):
+    if start == len(arr) - 1:
+        yield tuple(arr)
+    else:
+        for i in range(start, len(arr)):
+            arr[start], arr[i] = arr[i], arr[start]
+            yield from permutations_recursive(arr, start + 1)
+            arr[start], arr[i] = arr[i], arr[start]
+
+print("\nВсе перестановки (алгоритмический метод):")
+start_time = time.time()
+permutations_algo = list(permutations_recursive(numbers))
+end_time = time.time()
+
+for p in permutations_algo:
+    print(p)
+print(f"\nКоличество перестановок (алгоритмический): {len(permutations_algo)}")
+print(f"Время выполнения (алгоритмический): {end_time - start_time:.6f} секунд")
+print("\nВсе перестановки (использование itertools):")
+start_time = time.time()
+permutations_func = list(itertools.permutations(numbers))
+end_time = time.time()
+for p in permutations_func:
+    print(p)
+print(f"\nКоличество перестановок (itertools): {len(permutations_func)}")
+print(f"Время выполнения (itertools): {end_time - start_time:.6f} секунд")
