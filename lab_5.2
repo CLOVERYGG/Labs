@@ -1,0 +1,42 @@
+import time
+import itertools
+
+# Ввод данных
+K = int(input("Введите количество чисел K: "))
+numbers = []
+for _ in range(K):
+    num = int(input("Введите число: "))
+    numbers.append(num)
+
+min_num = min(numbers)
+numbers_without_min = [num for num in numbers if num != min_num]
+print(f"\nМинимальное число: {min_num}")
+print("Все перестановки, начинающиеся с минимального числа:")
+def permutations_recursive(arr, start=0):
+    if start == len(arr) - 1:
+        yield tuple(arr)
+    else:
+        for i in range(start, len(arr)):
+            arr[start], arr[i] = arr[i], arr[start]
+            yield from permutations_recursive(arr, start + 1)
+            arr[start], arr[i] = arr[i], arr[start]
+
+start_time = time.time()
+permutations_algo = []
+for perm in permutations_recursive(numbers_without_min):
+    permutations_algo.append((min_num,) + perm)
+end_time = time.time()
+
+for p in permutations_algo:
+    print(p)
+print(f"\nКоличество перестановок (алгоритмический): {len(permutations_algo)}")
+print(f"Время: {end_time - start_time:.6f} секунд")
+start_time = time.time()
+permutations_func = []
+for perm in itertools.permutations(numbers_without_min):
+    permutations_func.append((min_num,) + perm)
+end_time = time.time()
+for p in permutations_func:
+    print(p)
+print(f"\nКоличество перестановок (itertools): {len(permutations_func)}")
+print(f"Время: {end_time - start_time:.6f} секунд")
