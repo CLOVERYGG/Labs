@@ -1,0 +1,45 @@
+import tkinter as tk
+from tkinter import scrolledtext, messagebox
+import itertools
+
+class PermutationApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Перестановки чисел")
+
+        self.input_frame = tk.Frame(self.root)
+        self.input_frame.pack(pady=10)
+
+        self.label = tk.Label(self.input_frame, text="Введите числа (через запятую):")
+        self.label.pack()
+        self.entry = tk.Entry(self.input_frame, width=50)
+        self.entry.pack(pady=5)
+        self.result_frame = tk.Frame(self.root)
+        self.result_frame.pack(pady=10)
+
+        self.output = scrolledtext.ScrolledText(self.result_frame, width=60, height=15)
+        self.output.pack()
+
+        self.button = tk.Button(self.root, text="Получить перестановки", command=self.calculate_permutations)
+        self.button.pack(pady=10)
+
+    def calculate_permutations(self):
+        input_numbers = self.entry.get()
+        try:
+            numbers = list(map(int, input_numbers.split(',')))
+            min_num = min(numbers)
+            numbers_without_min = [num for num in numbers if num != min_num]
+            permutations = list(itertools.permutations(numbers_without_min))
+
+            self.output.delete(1.0, tk.END)  # Очистка текстового поля
+            self.output.insert(tk.END, f"Минимальное число: {min_num}\n")
+            self.output.insert(tk.END, "Все перестановки, начиная с минимального числа:\n")
+            for perm in permutations:
+                self.output.insert(tk.END, f"{(min_num,) + perm}\n")
+        except ValueError:
+            messagebox.showerror("Ошибка", "Пожалуйста, введите корректные числа.")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = PermutationApp(root)
+    root.mainloop()
