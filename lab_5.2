@@ -1,42 +1,76 @@
-import time
 import itertools
+import timeit
 
-# Ввод данных
-K = int(input("Введите количество чисел K: "))
-numbers = []
-for _ in range(K):
-    num = int(input("Введите число: "))
-    numbers.append(num)
+def calculate_alternation(permutation):
+    count = 0
+    for i in range(1, len(permutation) - 1):
+        if (permutation[i] > permutation[i - 1] and permutation[i] > permutation[i + 1]) or \
+           (permutation[i] < permutation[i - 1] and permutation[i] < permutation[i + 1]):
+            count += 1
+    return count
+def generate_permutations_algorithmic(numbers, max_alternations):
+    result = []
+    n = len(numbers)
 
-min_num = min(numbers)
-numbers_without_min = [num for num in numbers if num != min_num]
-print(f"\nМинимальное число: {min_num}")
-print("Все перестановки, начинающиеся с минимального числа:")
-def permutations_recursive(arr, start=0):
-    if start == len(arr) - 1:
-        yield tuple(arr)
-    else:
-        for i in range(start, len(arr)):
-            arr[start], arr[i] = arr[i], arr[start]
-            yield from permutations_recursive(arr, start + 1)
-            arr[start], arr[i] = arr[i], arr[start]
+    def backtrack(path, used):
+        if len(path) == n:
+            alternations = calculate_alternation(path)
+            if alternations <= max_alternations:
+                result.append((tuple(path), alternations))
+            return
+        for i in range(n):
+            if not used[i]:
+                used[i] = True
+                path.append(numbers[i])
+                backtrack(path, used)
+                path.pop()
+                used[i] = False
 
-start_time = time.time()
-permutations_algo = []
-for perm in permutations_recursive(numbers_without_min):
-    permutations_algo.append((min_num,) + perm)
-end_time = time.time()
+    backtrack([], [False]*n)
+    return result
 
-for p in permutations_algo:
-    print(p)
-print(f"\nКоличество перестановок (алгоритмический): {len(permutations_algo)}")
-print(f"Время: {end_time - start_time:.6f} секунд")
-start_time = time.time()
-permutations_func = []
-for perm in itertools.permutations(numbers_without_min):
-    permutations_func.append((min_num,) + perm)
-end_time = time.time()
-for p in permutations_func:
-    print(p)
-print(f"\nКоличество перестановок (itertools): {len(permutations_func)}")
-print(f"Время: {end_time - start_time:.6f} секунд")
+def generate_permutations_itertools(numbers, max_alternations):
+    perms = list(itertools.permutations(numbers))
+    return [(p, calculate_alternation(p)) for p in perms if calculate_alternation(p) <= max_alternations] # Сохраняем и перестановку, и количество чередований
+
+def calculate_absolute_difference_sum(permutation):
+    sum_diff = 0
+    for i in range(len(permutation) - 1):
+        sum_diff += abs(permutation[i] - permutation[i+1])
+    return sum_diff
+
+def main():
+    numbers = list(map(int, input("Введите числа через пробел: ").split()))
+    max_alternations = int(input("Введите максимальное количество чередований: "))
+
+    start = timeit.default_timer()
+    perms_alg = generate_permutations_algorithmic(numbers, max_alternations)
+    end = timeit.default_timer()
+    time_alg = (end - start) * 1000
+    start = timeit.default_timer()
+    perms_it = generate_permutations_itertools(numbers, max_alternations)
+    end = timeit.default_timer()
+    time_it = (end - start) * 1000
+
+    print(f"\nАлгоритмический способ - всего перестановок: {len(perms_alg)}")
+    for p, alt in perms_alg:  # Выводим перестановку и количество чередований
+        print(f"{p} (Чередований: {alt})")
+    print(f"\nitertools способ - всего перестановок: {len(perms_it)}")
+    for p, alt in perms_it:  # Выводим перестановку и количество чередований
+        print(f"{p} (Чередований: {alt})")
+    print(f"\nВремя алгоритмического способа: {time_alg:.6f} мс")
+    print(f"Время itertools способа: {time_it:.6f} мс")
+
+    if perms_alg:
+        permutations_alg = [p[0] for p in perms_alg]
+        best_permutation_alg = max(permutations_alg, key=calculate_absolute_difference_sum)
+        max_diff_sum_alg = calculate_absolute_difference_sum(best_permutation_alg)
+        print(f"\nАлгоритмический способ - Перестановка с максимальной суммой разностей: {best_permutation_alg}, Сумма разностей: {max_diff_sum_alg}")
+    if perms_it:
+        permutations_it = [p[0] for p in perms_it]
+        best_permutation_it = max(permutations_it, key=calculate_absolute_difference_sum)
+        max_diff_sum_it = calculate_absolute_difference_sum(best_permutation_it)
+        print(f"itertools способ - Перестановка с максимальной суммой разностей: {best_permutation_it}, Сумма разностей: {max_diff_sum_it}")
+        
+if __name__ == "__main__":
+    main()
