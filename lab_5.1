@@ -1,35 +1,48 @@
-import time
 import itertools
+import timeit
 
-K = int(input("Введите количество чисел K: "))
-numbers = []
-for _ in range(K):
-    num = int(input("Введите число: "))
-    numbers.append(num)
+def generate_permutations_algorithmic(numbers):
+    result = []
+    n = len(numbers)
+    
+    def backtrack(path, used):
+        if len(path) == n:
+            result.append(tuple(path))
+            return
+        for i in range(n):
+            if not used[i]:
+                used[i] = True
+                path.append(numbers[i])
+                backtrack(path, used)
+                path.pop()
+                used[i] = False
 
-def permutations_recursive(arr, start=0):
-    if start == len(arr) - 1:
-        yield tuple(arr)
-    else:
-        for i in range(start, len(arr)):
-            arr[start], arr[i] = arr[i], arr[start]
-            yield from permutations_recursive(arr, start + 1)
-            arr[start], arr[i] = arr[i], arr[start]
+    backtrack([], [False]*n)
+    return result
 
-print("\nВсе перестановки (алгоритмический метод):")
-start_time = time.time()
-permutations_algo = list(permutations_recursive(numbers))
-end_time = time.time()
+def generate_permutations_itertools(numbers):
+    return list(itertools.permutations(numbers))
 
-for p in permutations_algo:
-    print(p)
-print(f"\nКоличество перестановок (алгоритмический): {len(permutations_algo)}")
-print(f"Время выполнения (алгоритмический): {end_time - start_time:.6f} секунд")
-print("\nВсе перестановки (использование itertools):")
-start_time = time.time()
-permutations_func = list(itertools.permutations(numbers))
-end_time = time.time()
-for p in permutations_func:
-    print(p)
-print(f"\nКоличество перестановок (itertools): {len(permutations_func)}")
-print(f"Время выполнения (itertools): {end_time - start_time:.6f} секунд")
+def main():
+    numbers = list(map(int, input("Введите числа через пробел: ").split()))
+
+    start = timeit.default_timer()
+    perms_alg = generate_permutations_algorithmic(numbers)
+    end = timeit.default_timer()
+    time_alg = (end - start) * 1000
+    start = timeit.default_timer()
+    perms_it = generate_permutations_itertools(numbers)
+    end = timeit.default_timer()
+    time_it = (end - start) * 1000
+
+    print(f"\nАлгоритмический способ - всего перестановок: {len(perms_alg)}")
+    for p in perms_alg:
+        print(p)
+    print(f"\nitertools способ - всего перестановок: {len(perms_it)}")
+    for p in perms_it:
+        print(p)
+    print(f"\nВремя алгоритмического способа: {time_alg:.6f} мс")
+    print(f"Время itertools способа: {time_it:.6f} мс")
+
+if __name__ == "__main__":
+    main()
