@@ -27,7 +27,7 @@ def iterative(n):
         F_current = sign * fact - G_prev
         G_current = F_prev
         F_prev, G_prev = F_current, G_current
-        fact *= (2 * i) * (2 * i + 1)
+        fact *= (i - 1)
     return (F_prev, G_prev)
 def measure_time(func, n, number=1):
     from functools import partial
