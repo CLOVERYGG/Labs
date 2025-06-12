@@ -20,7 +20,7 @@ def iterative(n):
     if n == 1:
         return (1, 1)
     F_prev, G_prev = 1, 1
-    sign = 1  # Начинаем с n=2, (-1)^2 = 1
+    sign = 1 
     for i in range(2, n + 1):
         sign *= -1
         fact = math.factorial(i - 1)
@@ -60,7 +60,6 @@ def main():
     for i in range(len(ns)):
         print(
             f"{ns[i]:2d} | {f_recursive_times[i]:10.6f} | {g_recursive_times[i]:10.6f} | {f_iterative_times[i]:11.6f} | {g_iterative_times[i]:11.6f}")
-    # Строим графики только для тех n, где рекурсивные методы работали
     valid_ns = ns[:max_n_recursive]
     valid_f_rec = f_recursive_times[:max_n_recursive]
     valid_g_rec = g_recursive_times[:max_n_recursive]
