@@ -1,99 +1,80 @@
-import math
+import numpy as np
 import timeit
 import matplotlib.pyplot as plt
-
-def F_rec(n):
+import math
+def F(n):
+    if n < 1:
+        raise ValueError("n должно быть положительным")
     if n == 1:
-        return 1
-    else:
-        return (-1)**n * (F_rec(n-1) - 2 * G_rec(n-1))
-
-def G_rec(n):
+        return -1
+    return F(n - 1) - 2 * G(n - 1)
+def G(n):
+    if n < 1:
+        raise ValueError("n должно быть положительным")
     if n == 1:
-        return 1
-    else:
-        return -F_rec(n-1) + math.factorial(n - 1)
-
-def F_iter(n):
+        return -1
+    return -F(n - 1) + math.factorial(n - 1)
+def iterative(n):
+    if n < 1:
+        raise ValueError("n должно быть положительным целым числом")
     if n == 1:
-        return 1
-    F_values = [0] * (n+1)
-    G_values = [0] * (n+1)
-    F_values[1] = 1
-    G_values[1] = 1
-    for i in range(2, n+1):
-        F_values[i] = (-1)**i * (F_values[i-1] - 2 * G_values[i-1])
-        G_values[i] = -F_values[i-1] + math.factorial(n - 1)
-    return F_values[n]
-def G_iter(n):
-    if n == 1:
-        return 1
-    F_values = [0] * (n+1)
-    G_values = [0] * (n+1)
-    F_values[1] = 1
-    G_values[1] = 1
-    for i in range(2, n+1):
-        F_values[i] = (-1)**i * (F_values[i-1] - 2 * G_values[i-1])
-        G_values[i] = -F_values[i-1] + math.factorial(n - 1)
-    return G_values[n]
-
+        return (1, 1)
+    F_prev, G_prev = 1, 1
+    sign = 1  # Начинаем с n=2, (-1)^2 = 1
+    for i in range(2, n + 1):
+        sign *= -1
+        fact = math.factorial(i - 1)
+        F_current = sign * fact - G_prev
+        G_current = F_prev
+        F_prev, G_prev = F_current, G_current
+        fact *= (2 * i) * (2 * i + 1)
+    return (F_prev, G_prev)
+def measure_time(func, n, number=1):
+    from functools import partial
+    test_func = partial(func, n)
+    t = timeit.timeit(test_func, number=number)
+    return t / number
 def main():
-    n = int(input("Введите N: "))
-    results = {
-        'n': list(range(1, n+1)),
-        'F_rec': [],
-        'G_rec': [],
-        'F_iter': [],
-        'G_iter': [],
-        'time_F_rec': [],
-        'time_G_rec': [],
-        'time_F_iter': [],
-        'time_G_iter': []
-    }
-    for i in results['n']:
-        start = timeit.default_timer()
-        val_F_rec = F_rec(i)
-        end = timeit.default_timer()
-        results['F_rec'].append(val_F_rec)
-        results['time_F_rec'].append((end - start) * 1000)
-        start = timeit.default_timer()
-        val_G_rec = G_rec(i)
-        end = timeit.default_timer()
-        results['G_rec'].append(val_G_rec)
-        results['time_G_rec'].append((end - start) * 1000)
-        start = timeit.default_timer()
-        val_F_iter = F_iter(i)
-        end = timeit.default_timer()
-        results['F_iter'].append(val_F_iter)
-        results['time_F_iter'].append((end - start) * 1000)
-        start = timeit.default_timer()
-        val_G_iter = G_iter(i)
-        end = timeit.default_timer()
-        results['G_iter'].append(val_G_iter)
-        results['time_G_iter'].append((end - start) * 1000)
-
-    print(f"\n{'n':<5}{'F_rec':<20}{'G_rec':<20}{'F_iter':<20}{'G_iter':<20}"
-          f"{'t_F_rec(ms)':<15}{'t_G_rec(ms)':<15}{'t_F_iter(ms)':<15}{'t_G_iter(ms)':<15}")
-    for i in range(n):
-        print(f"{results['n'][i]:<5}"
-              f"{results['F_rec'][i]:<20}"
-              f"{results['G_rec'][i]:<20}"
-              f"{results['F_iter'][i]:<20}"
-              f"{results['G_iter'][i]:<20}"
-              f"{results['time_F_rec'][i]:<15.6f}"
-              f"{results['time_G_rec'][i]:<15.6f}"
-              f"{results['time_F_iter'][i]:<15.6f}"
-              f"{results['time_G_iter'][i]:<15.6f}")
+    ns = np.arange(1, 21)
+    f_recursive_times = []
+    g_recursive_times = []
+    f_iterative_times = []
+    g_iterative_times = []
+    max_n_recursive = 0
+    for n in ns:
+        try:
+            t = measure_time(F, n)
+            f_recursive_times.append(t)
+            t = measure_time(G, n)
+            g_recursive_times.append(t)
+            max_n_recursive = n
+        except (RecursionError, OverflowError, ValueError) as e:
+            f_recursive_times.append(np.nan)
+            g_recursive_times.append(np.nan)
+        # Для итеративного метода
+        t = measure_time(lambda x: iterative(x)[0], n)
+        f_iterative_times.append(t)
+        t = measure_time(lambda x: iterative(x)[1], n)
+        g_iterative_times.append(t)
+    print("\n n | F_rec_time | G_rec_time | F_iter_time | G_iter_time")
+    for i in range(len(ns)):
+        print(
+            f"{ns[i]:2d} | {f_recursive_times[i]:10.6f} | {g_recursive_times[i]:10.6f} | {f_iterative_times[i]:11.6f} | {g_iterative_times[i]:11.6f}")
+    # Строим графики только для тех n, где рекурсивные методы работали
+    valid_ns = ns[:max_n_recursive]
+    valid_f_rec = f_recursive_times[:max_n_recursive]
+    valid_g_rec = g_recursive_times[:max_n_recursive]
     plt.figure(figsize=(12, 6))
-    plt.plot(results['n'], results['time_F_rec'], 'r-', label='F рекурсия')
-    plt.plot(results['n'], results['time_F_iter'], 'r--', label='F итерация')
-    plt.plot(results['n'], results['time_G_rec'], 'b-', label='G рекурсия')
-    plt.plot(results['n'], results['time_G_iter'], 'b--', label='G итерация')
-    plt.title('Сравнение времени вычисления функций F и G')
+    plt.plot(valid_ns, valid_f_rec, 'r--', label='F rec')
+    plt.plot(valid_ns, valid_g_rec, 'b--', label='G rec')
+    plt.plot(ns, f_iterative_times, 'r-', label='F iter')
+    plt.plot(ns, g_iterative_times, 'b-', label='G iter')
     plt.xlabel('n')
-    plt.ylabel('Время (мс)')
+    plt.ylabel('Time (seconds)')
+    plt.title('Сравнение времени выполнения для рекуррентных формул')
     plt.legend()
-    plt.grid (True)
+    plt.grid(True)
+    plt.yscale('log')
     plt.show()
 if __name__ == "__main__":
     main()
