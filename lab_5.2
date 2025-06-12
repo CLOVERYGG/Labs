@@ -1,78 +1,93 @@
-import itertools
+import random
+import math
 import timeit
+from itertools import product
 
-def generate_permutations_algorithmic(numbers):
-    result = []
-    n = len(numbers)
-
-    def backtrack(path, used):
-        if len(path) == n:
-            result.append(tuple(path))
+def generate_algo(nums):
+    k = len(nums)
+    combos = []
+    def dfs(pos, buf):
+        if pos == k:
+            combos.append(tuple(buf))
             return
+        for x in nums:
+            buf.append(x)
+            dfs(pos + 1, buf)
+            buf.pop()
+    dfs(0, [])
+    return combos
 
-        if len(path) == 0:
-            if 1 in numbers:
-                one_index = numbers.index(1)  
-                if not used[one_index]:
-                    used[one_index] = True
-                    path.append(1)
-                    backtrack(path, used)
-                    path.pop()
-                    used[one_index] = False
-            return 
+def generate_py(nums):
+    return list(product(nums, repeat=len(nums)))
 
-        for i in range(n):
-            if not used[i]:
-                used[i] = True
-                path.append(numbers[i])
-                backtrack(path, used)
-                path.pop()
-                used[i] = False
-    backtrack([], [False]*n)
-    return result
-
-def generate_permutations_itertools(numbers):
-    if 1 not in numbers:
-        return [] 
-    perms = list(itertools.permutations(numbers))
-    return [p for p in perms if p[0] == 1]
-
-def calculate_sum_of_differences(permutation):
-    total_difference = 0
-    for i in range(len(permutation) - 1):
-        total_difference += abs(permutation[i] - permutation[i+1])
-    return total_difference
+def unique_list(lst):
+    seen = set()
+    uniq = []
+    for item in lst:
+        if item not in seen:
+            seen.add(item)
+            uniq.append(item)
+    return uniq
 
 def main():
-    numbers = list(map(int, input("Введите числа через пробел: ").split()))
+    K = int(input("Введите K (длину кортежей и количество чисел): "))
+    nums = [random.randint(0, 9) for _ in range(K)]
+    print(f"Сгенерированные числа: {nums}")
 
-    start = timeit.default_timer()
-    perms_alg = generate_permutations_algorithmic(numbers)
-    end = timeit.default_timer()
-    time_alg = (end - start) * 1000
+    algo_time = timeit.timeit(lambda: generate_algo(nums), number=1)
+    algo_combos = generate_algo(nums)
+    print("\n=== Алгоритмический метод ===")
+    print(f"Всего комбинаций: {len(algo_combos)}")
+    print("Первые 5 комбинаций:")
+    for combo in algo_combos[:5]:
+        print(combo)
+    print(f"Время выполнения: {algo_time:.6f} сек")
+    py_time = timeit.timeit(lambda: generate_py(nums), number=1)
+    py_combos = generate_py(nums)
+    print("\n=== Метод itertools.product ===")
+    print(f"Всего комбинаций: {len(py_combos)}")
+    print("Первые 5 комбинаций:")
+    for combo in py_combos[:5]:
+        print(combo)
+    print(f"Время выполнения: {py_time:.6f} сек")
 
-    start = timeit.default_timer()
-    perms_it = generate_permutations_itertools(numbers)
-    end = timeit.default_timer()
-    time_it = (end - start) * 1000
+    faster = "алгоритмический" if algo_time < py_time else "itertools.product"
+    print(f"\nБолее быстрый метод: {faster}")
 
-    print(f"\nАлгоритмический способ - всего перестановок, начинающихся с 1: {len(perms_alg)}")
-    for p in perms_alg: 
-        print(p)
-    print(f"\nitertools способ - всего перестановок, начинающихся с 1: {len(perms_it)}")
-    for p in perms_it: 
-        print(p)
-    print(f"\nВремя алгоритмического способа: {time_alg:.6f} мс")
-    print(f"Время itertools способа: {time_it:.6f} мс")
-    if perms_alg:
-        best_permutation_alg = max(perms_alg, key=calculate_sum_of_differences)
-        max_difference_sum_alg = calculate_sum_of_differences(best_permutation_alg)
-        print(f"\nАлгоритмический способ - Перестановка с максимальной суммой разностей: {best_permutation_alg}, Сумма разностей: {max_difference_sum_alg}")
+    attr = {x: random.randint(1, 10) for x in set(nums)}
+    print("\nАтрибуты (вес) для каждого числа:")
+    for x, w in attr.items():
+        print(f"  число {x} → вес {w}")
 
-    if perms_it:
-        best_permutation_it = max(perms_it, key=calculate_sum_of_differences)
-        max_difference_sum_it = calculate_sum_of_differences(best_permutation_it)
-        print(f"itertools способ - Перестановка с максимальной суммой разностей: {best_permutation_it}, Сумма разностей: {max_difference_sum_it}")
+    coeffs = [2 ** (1 - i) for i in range(K)]
+    print("\nПозиционные коэффициенты:")
+    for i, c in enumerate(coeffs):
+        print(f"  индекс {i} → {c}")
+
+    weight_sums = [sum(attr[x] for x in t) for t in algo_combos]
+    possible_sums = sorted(set(weight_sums))
+    T_w = random.choice(possible_sums)
+    print(f"\nЦелевая сумма весов (из достижимых) T_w = {T_w}")
+
+    filtered = unique_list([t for t in algo_combos if sum(attr[x] for x in t) == T_w])
+    total = len(algo_combos)
+    reduced = len(filtered)
+    print(f"\nОтобрано уникальных кортежей: {reduced} из {total} ({100 * (1 - reduced/total):.2f}% сокращено)")
+
+    print("\nПервые 10 уникальных отобранных кортежей и их вес:")
+    for t in filtered[:10]:
+        weight = sum(attr[x] * coeffs[i] for i, x in enumerate(t))
+        print(f"{t}  — вес {weight:.2f}")
+
+    best = None
+    best_score = -math.inf
+    for t in filtered:
+        score = sum(attr[x] * coeffs[i] for i, x in enumerate(t))
+        if score > best_score:
+            best_score = score
+            best = t
+
+    print(f"\nЛучший кортеж: {best}  — взвешенный вес {best_score:.2f}")
 
 if __name__ == "__main__":
     main()
