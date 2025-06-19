@@ -7,8 +7,9 @@ pruned_nodes = 0
 
 def generate_algo(nums):
     global algo_nodes
-    k = len(nums)
+    algo_nodes = 0
     combos = []
+    k = len(nums)
     def dfs(pos, buf):
         global algo_nodes
         algo_nodes += 1
@@ -22,27 +23,32 @@ def generate_algo(nums):
     dfs(0, [])
     return combos
 
-def generate_pruned(nums, attr, T_w): # 5.2
+# генерация комбинаций для 5.2
+def generate_pruned(nums, attr, T_w):  # 5.2
+    # начинается генерация комбинаций
+    global pruned_nodes
+    pruned_nodes = 0
+    combos = []
     k = len(nums)
     w_max = max(attr.values())
     w_min = min(attr.values())
-    result = []
     def dfs(pos, buf, curr_w):
         global pruned_nodes
         pruned_nodes += 1
         if pos == k:
             if curr_w == T_w:
-                result.append(tuple(buf))
+                combos.append(tuple(buf))
             return
         rem = k - pos
-        if curr_w + rem * w_max < T_w or curr_w + rem * w_min > T_w: 
+        #  при достижении макс веса + n комбинация не генерируется
+        if curr_w + rem * w_max < T_w or curr_w + rem * w_min > T_w:
             return
         for x in nums:
             buf.append(x)
             dfs(pos + 1, buf, curr_w + attr[x])
             buf.pop()
-    dfs(0, [], 0)
-    return result
+    dfs(0, [], 0)  # новые варианты генерируются здесь
+    return combos
 
 def unique_list(lst):
     seen = set()
@@ -53,13 +59,15 @@ def unique_list(lst):
             uniq.append(item)
     return uniq
 
+
 def main():
-    global algo_nodes
+    global algo_nodes, pruned_nodes
 
     K = int(input("Введите K (длину кортежей и количество чисел): "))
     nums = [random.randint(0, 9) for _ in range(K)]
     print(f"Сгенерированные числа: {nums}")
 
+    # 5.1 - алгоритмический метод
     algo_nodes = 0
     t_algo = timeit.timeit(lambda: generate_algo(nums), number=1)
     combos = generate_algo(nums)
@@ -70,6 +78,7 @@ def main():
         print(c)
     print(f"Время: {t_algo:.6f} сек")
 
+    # 5.1 - метод itertools.product
     t_py = timeit.timeit(lambda: list(product(nums, repeat=K)), number=1)
     py_combos = list(product(nums, repeat=K))
     print("\n=== Метод itertools.product ===")
@@ -78,20 +87,23 @@ def main():
         print(c)
     print(f"Время: {t_py:.6f} сек")
 
-    attr = {x: random.randint(1, 10) for x in set(nums)} 
+    # атрибуты (вес) и позиционные коэффициенты
+    attr = {x: random.randint(1, 10) for x in set(nums)}  # вес от 1 до 10 для каждого числа
     print("\nАтрибуты (вес) для каждого числа:")
     for x, w in attr.items():
         print(f"  {x} → {w}")
 
-    coeffs = [2 ** (1 - i) for i in range(K)] 
-    print("\nПозиционные коэффициенты:") 
+    coeffs = [2 ** (1 - i) for i in range(K)]  # коэфф в позиции
+    print("\nПозиционные коэффициенты:")
     for i, c in enumerate(coeffs):
         print(f"  индекс {i} → {c}")
 
-    all_sums = {sum(attr[x] for x in combo) for combo in combos} 
-    T_w = random.choice(sorted(all_sums)) 
+    # Целевая сумма весов
+    all_sums = {sum(attr[x] for x in combo) for combo in combos}
+    T_w = random.choice(sorted(all_sums))
     print(f"\nЦелевая сумма весов T_w = {T_w}")
 
+    # 5.2 - генерация с отсечением во время перебора
     pruned_nodes = 0
     pruned = generate_pruned(nums, attr, T_w)
     pruned_unique = unique_list(pruned)
@@ -102,6 +114,7 @@ def main():
         score = sum(attr[x] * coeffs[i] for i, x in enumerate(t))
         print(f"{t}  — вес {score:.2f}")
 
+    # лучший кортеж
     best = max(pruned_unique, key=lambda t: sum(attr[x] * coeffs[i] for i, x in enumerate(t)))
     best_score = sum(attr[x] * coeffs[i] for i, x in enumerate(best))
     print(f"\nЛучший кортеж: {best}  — вес {best_score:.2f}")
