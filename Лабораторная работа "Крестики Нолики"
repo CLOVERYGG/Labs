@@ -1,0 +1,211 @@
+
+import tkinter as tk
+from tkinter import messagebox
+import random
+
+class TicTacToe:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Крестики-нолики")
+        self.root.geometry("720x560")
+        self.root.resizable(False, False)
+
+        # --- Цвета X и O возвращены к классическим ---
+        self.color_x = "#e74c3c"      # Красный для X
+        self.color_o = "#3498db"      # Синий для O
+        
+        self.bg_color = "#07220a"     # фон (зеленый)
+        self.panel_bg = "#0b3d18"     # фон панелей (зеленый)
+        self.cell_bg = "#124a26"      # фон пустой клетки (зеленый)
+        self.fg_color = "#e6f7ea"     # светлый текст
+        self.win_color = "#a3e635"    # подсветка победной линии
+
+        self.root.configure(bg=self.bg_color)
+
+        self.board = [''] * 9
+        self.current_player = 'X'
+        self.game_active = False
+        self.scores = {'X': 0, 'O': 0}
+        self.moves_count = {'X': 0, 'O': 0}
+        self.player_symbol = 'X'
+
+        self.create_start_screen()
+
+    def create_start_screen(self):
+        self.clear_screen()
+        frm = tk.Frame(self.root, bg=self.bg_color)
+        frm.place(relx=0.5, rely=0.5, anchor="center")
+
+        tk.Label(frm, text="Крестики — Нолики", font=("Helvetica", 28, "bold"),
+                 fg=self.fg_color, bg=self.bg_color).pack(pady=(0,14))
+
+        tk.Label(frm, text="Кого выбираешь?", font=("Helvetica", 12), fg=self.fg_color, bg=self.bg_color).pack(pady=(0,12))
+
+        btns = tk.Frame(frm, bg=self.bg_color)
+        btns.pack()
+        # Обновлены описания кнопок для соответствия новым цветам
+        tk.Button(btns, text="X — красный", font=("Helvetica", 11, "bold"),
+                  bg=self.color_x, fg="white", width=26, relief=tk.FLAT,
+                  command=lambda: self.start_game('X')).grid(row=0, column=0, padx=8, pady=8)
+        tk.Button(btns, text="O — синий", font=("Helvetica", 11, "bold"),
+                  bg=self.color_o, fg="white", width=26, relief=tk.FLAT,
+                  command=lambda: self.start_game('O')).grid(row=0, column=1, padx=8, pady=8)
+
+
+    def start_game(self, symbol):
+        self.player_symbol = symbol
+        self.game_active = True
+        self.board = [''] * 9
+        self.moves_count = {'X': 0, 'O': 0}
+        self.current_player = symbol
+        self.clear_screen()
+        self.setup_game_ui()
+
+    def setup_game_ui(self):
+        root_bg = tk.Frame(self.root, bg=self.bg_color)
+        root_bg.pack(fill="both", expand=True, padx=18, pady=14)
+
+        # Верхняя панель управления
+        top_panel = tk.Frame(root_bg, bg=self.panel_bg, height=56)
+        top_panel.pack(fill="x", pady=(0,12))
+        top_panel.pack_propagate(False)
+        tk.Button(top_panel, text="🔄 Новая партия", bg=self.win_color, fg="#07220a", font=("Helvetica", 10, "bold"),
+                  relief=tk.FLAT, command=self.reset_game).pack(side="left", padx=12, pady=8)
+        tk.Button(top_panel, text="🏠 В меню", bg="#1f7a3b", fg=self.fg_color, font=("Helvetica", 10, "bold"),
+                  relief=tk.FLAT, command=self.create_start_screen).pack(side="left", padx=8, pady=8)
+        tk.Label(top_panel, text=f"Вы: {self.player_symbol}", bg=self.panel_bg, fg=self.fg_color,
+                 font=("Helvetica", 12, "bold")).pack(side="right", padx=14)
+
+        # Центральная зона — игровое поле
+        center = tk.Frame(root_bg, bg=self.bg_color)
+        center.pack(expand=True)
+
+        board_frame = tk.Frame(center, bg=self.bg_color)
+        board_frame.pack(pady=4)
+
+        # Порядок создания кнопок "змейкой"
+        snake_order = [0,1,2,5,4,3,6,7,8]
+        self.buttons = [None]*9
+        for pos, board_idx in enumerate(snake_order):
+            r = pos // 3
+            c = pos % 3
+            btn = tk.Button(board_frame, text="", font=("Helvetica", 32, "bold"),
+                            width=4, height=2, bg=self.cell_bg, fg=self.fg_color,
+                            activebackground="#163e1a", relief="raised",
+                            bd=3, command=lambda idx=board_idx: self.player_move(idx))
+            btn.grid(row=r, column=c, padx=6, pady=6)
+            self.buttons[board_idx] = btn
+
+        # Нижняя информационная панель
+        info_panel = tk.Frame(root_bg, bg=self.panel_bg, height=120)
+        info_panel.pack(fill="x", pady=(12,0))
+        info_panel.pack_propagate(False)
+
+        self.turn_label = tk.Label(info_panel, text=f"Ход: {self.current_player}",
+                                   bg=self.panel_bg, fg=self.fg_color, font=("Helvetica", 14, "bold"))
+        self.turn_label.pack(side="left", padx=14)
+
+        self.moves_label = tk.Label(info_panel, text="Ходы — X: 0 | O: 0",
+                                    bg=self.panel_bg, fg=self.fg_color, font=("Helvetica", 11))
+        self.moves_label.pack(side="left", padx=8)
+
+        self.score_label = tk.Label(info_panel, text=f"Счёт — X: {self.scores['X']}  O: {self.scores['O']}",
+                                    bg=self.panel_bg, fg=self.fg_color, font=("Helvetica", 11))
+        self.score_label.pack(side="right", padx=14)
+
+    def player_move(self, index):
+        if not self.game_active or self.current_player != self.player_symbol: return
+        if self.board[index] == '':
+            self.board[index] = self.player_symbol
+            self.buttons[index].config(text=self.player_symbol,
+                                      fg=self.color_x if self.player_symbol == 'X' else self.color_o,
+                                      bg="#103716")
+            self.moves_count[self.player_symbol] += 1
+            self.update_moves_display()
+            if self.check_winner(self.player_symbol): self.end_game(self.player_symbol)
+            elif self.check_draw(): self.end_game(None)
+            else:
+                ai = 'O' if self.player_symbol == 'X' else 'X'
+                self.current_player = ai
+                self.turn_label.config(text=f"Ход: {ai}", fg=self.color_o if ai=='O' else self.color_x)
+                self.root.after(500, self.ai_move)
+
+    def ai_move(self):
+        if not self.game_active: return
+        ai = 'O' if self.player_symbol == 'X' else 'X'
+        pl = self.player_symbol
+        if self.current_player != ai: return
+
+        move_index = -1
+        # Попытка выиграть или блокировка игрока
+        for p in [ai, pl]:
+            if move_index != -1: break
+            for i in range(9):
+                if self.board[i] == '':
+                    self.board[i] = p
+                    if self.check_winner_logic(p):
+                        move_index = i
+                        break
+                    self.board[i] = ''
+        
+        # Случайный
+        if move_index == -1:
+            empty = [i for i in range(9) if self.board[i] == '']
+            if empty: move_index = random.choice(empty)
+            else: return
+
+        self.board[move_index] = ai
+        self.buttons[move_index].config(text=ai, fg=self.color_o if ai=='O' else self.color_x, bg="#103716")
+        self.moves_count[ai] += 1
+        self.update_moves_display()
+        if self.check_winner(ai): self.end_game(ai)
+        elif self.check_draw(): self.end_game(None)
+        else:
+            self.current_player = pl
+            self.turn_label.config(text=f"Ход: {pl}", fg=self.color_x if pl=='X' else self.color_o)
+
+    def check_winner_logic(self, p):
+        lines = [(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
+        return any(self.board[a]==self.board[b]==self.board[c]==p for a,b,c in lines)
+
+    def check_winner(self, p):
+        lines = [(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
+        for a,b,c in lines:
+            if self.board[a]==self.board[b]==self.board[c]==p:
+                for i in (a,b,c): self.buttons[i].config(bg=self.win_color, fg=self.bg_color)
+                return True
+        return False
+
+    def check_draw(self):
+        return '' not in self.board
+
+    def end_game(self, winner):
+        self.game_active = False
+        if winner:
+            self.scores[winner] += 1
+            msg = "Вы выиграли!" if winner == self.player_symbol else "Бот выиграл!"
+            messagebox.showinfo("Итог", msg)
+        else:
+            messagebox.showinfo("Итог", "Ничья!")
+        self.score_label.config(text=f"Счёт — X: {self.scores['X']}  O: {self.scores['O']}")
+        self.turn_label.config(text="Игра окончена", fg=self.fg_color)
+
+    def update_moves_display(self):
+        self.moves_label.config(text=f"Ходы — X: {self.moves_count['X']} | O: {self.moves_count['O']}")
+
+    def reset_game(self):
+        self.board = [''] * 9
+        self.moves_count = {'X': 0, 'O': 0}
+        self.current_player = self.player_symbol
+        self.game_active = True
+        for b in self.buttons: b.config(text="", fg=self.fg_color, bg=self.cell_bg)
+        self.turn_label.config(text=f"Ход: {self.current_player}", fg=self.color_x if self.current_player=='X' else self.color_o)
+        self.update_moves_display()
+
+    def clear_screen(self):
+        for w in self.root.winfo_children(): w.destroy()
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    game = TicTacToe(root)
+    root.mainloop()
