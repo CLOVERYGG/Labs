@@ -1,0 +1,119 @@
+import tkinter as tk
+import random
+
+SIZE = 10
+
+def place_ships():
+    board_cells, ships = set(), []
+    for size in [4, 3, 3, 2, 2, 2, 1, 1, 1, 1]:
+        placed = False
+        for _ in range(200):
+            h = random.choice([True, False])
+            x = random.randint(0, SIZE - (size if h else 1))
+            y = random.randint(0, SIZE - (size if not h else 1))
+            cells = {(x + (i if h else 0), y + (i if not h else 0)) for i in range(size)}
+            if all((cx + dx, cy + dy) not in board_cells for cx, cy in cells for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
+                ships.append(cells);
+                board_cells |= cells;
+                placed = True;
+                break
+        if not placed: ships.append(cells); board_cells |= cells
+    return ships
+
+class Board:
+    def __init__(self):
+        self.ships, self.shots = place_ships(), set()
+
+    def shoot(self, pos):
+        if pos in self.shots: return None
+        self.shots.add(pos)
+        for s in self.ships:
+            if pos in s: return "sunk" if s <= self.shots else "hit"
+        return "miss"
+
+    def all_sunk(self):
+        return all(s <= self.shots for s in self.ships)
+
+class AI:
+    def __init__(self):
+        self.board, self.targets, self.used = Board(), [], set()
+
+    def shoot(self):
+        if self.targets: return self.targets.pop()
+        allp = [(x, y) for x in range(SIZE) for y in range(SIZE) if (x, y) not in self.used]
+        return random.choice(allp) if allp else (0, 0)
+
+    def feedback(self, pos, res):
+        self.used.add(pos)
+        if res == "hit":
+            x, y = pos
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < SIZE and 0 <= ny < SIZE and (nx, ny) not in self.used:
+                    self.targets.append((nx, ny))
+        elif res == "sunk":
+            self.targets.clear()
+
+class Game:
+    def __init__(self, root):
+        self.root, self.player, self.ai = root, Board(), AI()
+        self.root.title("Морской бой")
+        self.setup_ui()
+
+    def setup_ui(self):
+        f = tk.Frame(self.root);
+        f.pack(padx=5, pady=5)
+        self.status = tk.Label(f, text="", font=("Arial", 12));
+        self.status.grid(row=0, column=0, columnspan=22)
+        tk.Label(f, text="Мой флот").grid(row=1, column=0, columnspan=10)
+        tk.Label(f, text="Флот противника").grid(row=1, column=12, columnspan=10)
+        # Создаём разделительный столбец
+        f.grid_columnconfigure(10, minsize=30)
+        self.p_btns, self.e_btns = [], []
+        for y in range(SIZE):
+            row_p, row_e = [], []
+            for x in range(SIZE):
+                b_p = tk.Button(f, width=2, height=1, bg="lightgray", state="disabled")
+                b_p.grid(row=y + 2, column=x);
+                row_p.append(b_p)
+                b_e = tk.Button(f, width=2, height=1, bg="lightgray", command=lambda x=x, y=y: self.shot(x, y))
+                b_e.grid(row=y + 2, column=x + 12);
+                row_e.append(b_e)
+            self.p_btns.append(row_p);
+            self.e_btns.append(row_e)
+        tk.Button(f, text="Новая игра", command=self.restart).grid(row=12, column=0, columnspan=22, pady=5)
+
+    def update(self):
+        for y in range(SIZE):
+            for x in range(SIZE):
+                p, e = self.p_btns[y][x], self.e_btns[y][x]
+                pos = (x, y)
+                if pos in self.player.shots:
+                    p.config(bg="red" if any(pos in s for s in self.player.ships) else "darkgray")
+                elif any(pos in s for s in self.player.ships):
+                    p.config(bg="lightgreen")
+                else:
+                    p.config(bg="lightgray")
+                if pos in self.ai.board.shots:
+                    e.config(bg="red" if any(pos in s for s in self.ai.board.ships) else "darkgray", state="disabled")
+
+    def shot(self, x, y):
+        if self.ai.board.shoot((x, y)) is None: return
+        ai_pos = self.ai.shoot()
+        self.player.shoot(ai_pos)
+        ai_res = "hit" if any(ai_pos in s for s in self.player.ships) and ai_pos in self.player.shots else "miss"
+        self.ai.feedback(ai_pos, ai_res)
+        self.update()
+        if self.ai.board.all_sunk():
+            self.status.config(text="Победа!")
+        elif self.player.all_sunk():
+            self.status.config(text="Поражение!")
+
+    def restart(self):
+        self.player, self.ai = Board(), AI()
+        self.status.config(text="")
+        self.update()
+
+root = tk.Tk()
+Game(root)
+root.mainloop()
