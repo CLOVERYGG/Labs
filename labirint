@@ -1,0 +1,206 @@
+import tkinter as tk
+from tkinter import messagebox
+import random
+
+
+class MazeGame:
+    def __init__(self, root, cols=21, rows=15, cell_size=30, time_limit_sec=40):
+        self.root = root
+        self.root.title("🕷️ Паук в лабиринте") 
+        self.root.configure(bg="#e8f4f8")  
+
+        self.cols = cols if cols % 2 == 1 else cols + 1
+        self.rows = rows if rows % 2 == 1 else rows + 1
+        self.cell_size = cell_size
+        self.time_limit = time_limit_sec
+
+        title_label = tk.Label(root, text="🕷️ ПАУК В ЛАБИРИНТЕ",
+                               font=("Arial", 16, "bold"),
+                               bg="#e8f4f8", fg="#2c3e50")
+        title_label.pack(pady=(10, 5))
+
+        self.canvas = tk.Canvas(root, width=self.cols * self.cell_size,
+                                height=self.rows * self.cell_size,
+                                bg="#f8f9fa", highlightthickness=2,
+                                highlightbackground="#3498db")
+        self.canvas.pack(pady=10)
+
+        btn_frame = tk.Frame(root, bg="#e8f4f8")
+        btn_frame.pack()
+
+        tk.Button(btn_frame, text="🔄 Новая игра", command=self.reset_game,
+                  bg="#3498db", fg="white", font=("Arial", 10, "bold"),
+                  padx=10, pady=5).pack(side=tk.LEFT, padx=5)
+
+        tk.Button(btn_frame, text="▶️ Запустить паука", command=self.start_dfs,
+                  bg="#2ecc71", fg="white", font=("Arial", 10, "bold"),
+                  padx=10, pady=5).pack(side=tk.LEFT, padx=5)
+
+        self.timer_label = tk.Label(root, text="⏱️ Время: -- с",
+                                    font=("Arial", 12, "bold"),
+                                    bg="#e8f4f8", fg="#e74c3c")
+        self.timer_label.pack()
+
+        info_label = tk.Label(root,
+                              text="Паук находит выход с помощью алгоритма DFS",
+                              font=("Arial", 9), bg="#e8f4f8", fg="#7f8c8d")
+        info_label.pack(pady=(5, 10))
+
+        self.reset_game()
+
+    def reset_game(self):  # сброс игры
+        if hasattr(self, 'moving') and self.moving:
+            return
+        self.game_over = False
+        self.moving = False
+        self.remaining = self.time_limit
+        self.timer_label.config(text=f"⏱️ Время: -- с")
+        self.generate_maze()
+        self.draw_maze()
+        self.draw_player()
+        self.canvas.delete("trail")
+
+    def generate_maze(self):  
+        self.maze = [[True for _ in range(self.cols)] for _ in range(self.rows)]
+
+        def dfs(x, y):
+            self.maze[y][x] = False
+            directions = [(0, -2), (0, 2), (-2, 0), (2, 0)]
+            random.shuffle(directions)
+            for dx, dy in directions:
+                nx, ny = x + dx, y + dy
+                if 0 < nx < self.cols - 1 and 0 < ny < self.rows - 1 and self.maze[ny][nx]:
+                    self.maze[y + dy // 2][x + dx // 2] = False
+                    dfs(nx, ny)
+
+        dfs(1, 1)
+
+        passages = []
+        for y in range(1, self.rows - 1):
+            for x in range(1, self.cols - 1):
+                if not self.maze[y][x]:
+                    passages.append((x, y))
+
+        if len(passages) >= 2:
+            self.exit_pos = random.choice(passages) 
+            start_candidates = [p for p in passages if p != self.exit_pos]
+            self.player_pos = random.choice(start_candidates)  # рандомный старт
+        else:
+            self.player_pos = (1, 1)
+            self.exit_pos = (self.cols - 2, self.rows - 2)
+
+    def draw_maze(self):  
+        self.canvas.delete("all")
+        for y in range(self.rows):
+            for x in range(self.cols):
+                cx, cy = x * self.cell_size, y * self.cell_size
+                if self.maze[y][x]:
+                    
+                    self.canvas.create_rectangle(
+                        cx, cy, cx + self.cell_size, cy + self.cell_size,
+                        fill="#2c3e50", outline="#34495e", width=1
+                    )
+        ex, ey = self.exit_pos
+        cx = ex * self.cell_size + self.cell_size // 2
+        cy = ey * self.cell_size + self.cell_size // 2
+    
+        self.canvas.create_rectangle(
+            ex * self.cell_size + 2, ey * self.cell_size + 2,
+            (ex + 1) * self.cell_size - 2, (ey + 1) * self.cell_size - 2,
+            fill="#ff6b6b", outline="#e74c3c", width=2
+        )
+        self.canvas.create_text(cx, cy, text="🚪 Выход",
+                                fill="white", font=("Arial", 10, "bold"))
+
+    def draw_player(self):
+        if hasattr(self, '_player_id'):
+            self.canvas.delete(self._player_id)
+        x, y = self.player_pos
+        cx = x * self.cell_size + self.cell_size // 2
+        cy = y * self.cell_size + self.cell_size // 2
+        r = self.cell_size * 0.35
+        # Паучок с глазами
+        self._player_id = self.canvas.create_oval(
+            cx - r, cy - r, cx + r, cy + r,
+            fill="black", outline="#f1c40f", width=2
+        )
+        
+        eye_r = r * 0.3
+        self.canvas.create_oval(cx - eye_r, cy - eye_r,
+                                cx - eye_r / 2, cy - eye_r / 2, fill="white")
+        self.canvas.create_oval(cx + eye_r / 2, cy - eye_r,
+                                cx + eye_r, cy - eye_r / 2, fill="white")
+
+    def tick_timer(self):
+        if not self.game_over:
+            self.remaining = max(0, self.remaining - 1)
+            # Изменяем цвет при малом времени
+            color = "#e74c3c" if self.remaining < 10 else "#2c3e50"
+            self.timer_label.config(text=f"⏱️ Время: {self.remaining:02d} с", fg=color)
+            if self.remaining == 0:
+                self.end_game(win=False)
+        if not self.game_over:
+            self.root.after(1000, self.tick_timer)
+
+    def end_game(self, win):
+        self.game_over = True
+        self.moving = False
+        if win:
+            self.timer_label.config(fg="#27ae60")  # Зеленый при победе
+        msg = "🎉 Ура, паучок выбрался!" if win else "😢 Паучок проиграл(("
+        messagebox.showinfo("🎊 Победа!" if win else "💔 Проигрыш", msg)
+
+    def start_dfs(self): 
+        if self.moving or self.game_over:
+            return
+        self.moving = True
+        self.tick_timer()
+        self.stack = [self.player_pos]
+        self.visited = {self.player_pos}
+        self.dfs_step()
+
+    def dfs_step(self):
+        if self.game_over or not self.moving:
+            return
+        if not self.stack:
+            return
+
+        current = self.stack[-1]
+        self.player_pos = current
+        self.draw_player()
+
+        x, y = current
+        cx = x * self.cell_size + self.cell_size // 2
+        cy = y * self.cell_size + self.cell_size // 2
+        r = self.cell_size * 0.12
+        # След паучка
+        self.canvas.create_oval(
+            cx - r, cy - r, cx + r, cy + r,
+            fill="#f39c12", outline="", tags="trail"
+        )
+
+        if current == self.exit_pos:
+            self.end_game(win=True)
+            return
+
+        neighbors = []
+        for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < self.cols and 0 <= ny < self.rows:
+                if not self.maze[ny][nx] and (nx, ny) not in self.visited:
+                    neighbors.append((nx, ny))
+
+        if neighbors:
+            next_cell = random.choice(neighbors)
+            self.visited.add(next_cell)
+            self.stack.append(next_cell)
+        else:
+            self.stack.pop()
+
+        self.root.after(200, self.dfs_step)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    game = MazeGame(root, cols=21, rows=15, cell_size=30, time_limit_sec=40)
+    root.mainloop()
