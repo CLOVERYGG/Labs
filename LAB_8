@@ -1,59 +1,65 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import math
+import random
 
 
 class Triangle:
     def __init__(self, points=None, color="blue", name="Треугольник"):
-        self.points = points or [(150, 150), (250, 150), (200, 250)]
-        self.color, self.name = color, name
-
-    def copy(self):
-        return Triangle(self.points.copy(), self.color, f"{self.name}_копия")
-
-    def resize(self, scale):
-        if scale > 0:
-            cx, cy = self.get_center()
-            self.points = [(cx + (x - cx) * scale, cy + (y - cy) * scale) for x, y in self.points]
-        return scale > 0
-
-    def move(self, dx, dy):
-        self.points = [(x + dx, y + dy) for x, y in self.points]
+        self.points = points if points else [(150, 150), (250, 150), (200, 250)]
+        self.color = color
+        self.name = name
 
     def get_center(self):
         return (sum(p[0] for p in self.points) / 3, sum(p[1] for p in self.points) / 3)
 
+    def move(self, dx, dy):
+        self.points = [(x + dx, y + dy) for x, y in self.points]
+
     def intersects(self, other):
-        def area(a, b, c):
-            return abs((a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1])) / 2)
-
-        def point_in(p, t):
-            return abs(area(*t) - (area(p, t[1], t[2]) + area(t[0], p, t[2]) + area(t[0], t[1], p))) < 1e-9
-
-        # Проверка содержания точек
-        if any(point_in(p, other.points) for p in self.points): return True
-        if any(point_in(p, self.points) for p in other.points): return True
-
-        # Проверка пересечения сторон
-        def cross(a, b, c):
-            return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+        def point_in_triangle(px, py, tri):
+            (x1, y1), (x2, y2), (x3, y3) = tri
+            area = abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2)
+            area1 = abs((px * (y2 - y3) + x2 * (y3 - py) + x3 * (py - y2)) / 2)
+            area2 = abs((x1 * (py - y3) + px * (y3 - y1) + x3 * (y1 - py)) / 2)
+            area3 = abs((x1 * (y2 - py) + x2 * (py - y1) + px * (y1 - y2)) / 2)
+            return abs(area - (area1 + area2 + area3)) < 1e-9
 
         def seg_intersect(p1, p2, p3, p4):
-            d1, d2, d3, d4 = cross(p3, p4, p1), cross(p3, p4, p2), cross(p1, p2, p3), cross(p1, p2, p4)
-            if d1 * d2 < 0 and d3 * d4 < 0: return True
-            if d1 == 0 and min(p3[0], p4[0]) <= p1[0] <= max(p3[0], p4[0]) and min(p3[1], p4[1]) <= p1[1] <= max(p3[1],
-                                                                                                                 p4[
-                                                                                                                     1]): return True
+            def orient(p, q, r):
+                val = (q[1] - p[1]) * (r[0] - q[0]) - (q[0] - p[0]) * (r[1] - q[1])
+                return 0 if val == 0 else 1 if val > 0 else 2
+
+            def on_seg(p, q, r):
+                return min(p[0], r[0]) <= q[0] <= max(p[0], r[0]) and min(p[1], r[1]) <= q[1] <= max(p[1], r[1])
+
+            o1, o2, o3, o4 = orient(p1, p2, p3), orient(p1, p2, p4), orient(p3, p4, p1), orient(p3, p4, p2)
+            if o1 != o2 and o3 != o4: return True
+            if o1 == 0 and on_seg(p1, p3, p2): return True
+            if o2 == 0 and on_seg(p1, p4, p2): return True
+            if o3 == 0 and on_seg(p3, p1, p4): return True
+            if o4 == 0 and on_seg(p3, p2, p4): return True
             return False
 
         for i in range(3):
             for j in range(3):
-                if seg_intersect(self.points[i], self.points[(i + 1) % 3], other.points[j], other.points[(j + 1) % 3]):
+                if seg_intersect(self.points[i], self.points[(i + 1) % 3],
+                                 other.points[j], other.points[(j + 1) % 3]):
                     return True
+
+        for p in self.points:
+            if point_in_triangle(p[0], p[1], other.points): return True
+        for p in other.points:
+            if point_in_triangle(p[0], p[1], self.points): return True
+
         return False
 
-    def recolor(self, c=None):
-        self.color = c or ["red", "green", "blue", "yellow", "purple", "orange", "pink", "cyan"][hash(self.name) % 8]
+    def recolor(self, color=None):
+        if color:
+            self.color = color
+        else:
+            colors = ['red', 'green', 'blue', 'yellow', 'purple', 'orange', 'pink', 'cyan']
+            self.color = random.choice(colors)
 
     def get_info(self):
         return f"{self.name}," + ",".join(f"{x},{y}" for x, y in self.points) + f",{self.color}"
@@ -62,12 +68,13 @@ class Triangle:
 class TriangleApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Треугольники")
+        self.root.title("Редактор треугольников")
         self.root.geometry("800x600")
 
         self.triangles = []
         self.selected = -1
         self.setup_gui()
+
         self.add_triangle(Triangle())
         self.update_list()
         self.draw()
@@ -80,12 +87,19 @@ class TriangleApp:
         # Панель управления
         ctrl = ttk.Frame(main)
         ctrl.pack(fill="x", pady=(0, 10))
-        for text, cmd in [("Добавить", self.add), ("Копировать", self.copy),
-                          ("Удалить", self.delete), ("Изменить", self.modify),
-                          ("Пересечения", self.check)]:
+
+        buttons = [
+            ("Добавить", self.add),
+            ("Удалить", self.delete),
+            ("Переместить", self.move_dialog),
+            ("Проверить пересечения", self.check_intersections),
+            ("Раскрасить", self.recolor_selected)
+        ]
+
+        for text, cmd in buttons:
             ttk.Button(ctrl, text=text, command=cmd).pack(side="left", padx=2)
 
-        # Нижняя панель
+        # Основная область
         bottom = ttk.Frame(main)
         bottom.pack(fill="both", expand=True)
 
@@ -94,20 +108,22 @@ class TriangleApp:
         left.pack(side="left", fill="y", padx=(0, 10))
 
         self.vars = []
-        for label, val in [("X1", "150"), ("Y1", "150"), ("X2", "250"), ("Y2", "150"), ("X3", "200"), ("Y3", "250"),
-                           ("Цвет", "blue"), ("Имя", "Треугольник")]:
-            ttk.Label(left, text=label + ":").pack(anchor="w")
+        labels = ["X1:", "Y1:", "X2:", "Y2:", "X3:", "Y3:", "Цвет:", "Имя:"]
+        defaults = ["150", "150", "250", "150", "200", "250", "blue", "Треугольник"]
+
+        for i, (label, default) in enumerate(zip(labels, defaults)):
+            ttk.Label(left, text=label).pack(anchor="w", pady=(5 if i == 0 else 0, 2))
             if label == "Цвет":
-                var = tk.StringVar(value=val)
+                var = tk.StringVar(value=default)
                 ttk.Combobox(left, textvariable=var,
-                             values=("blue", "red", "green", "yellow", "purple", "orange", "pink", "cyan"),
-                             width=12).pack(fill="x", pady=(0, 5))
+                             values=('blue', 'red', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan'),
+                             width=12).pack(fill="x", pady=(0, 10 if i == 6 else 5))
             else:
-                var = tk.StringVar(value=val)
-                ttk.Entry(left, textvariable=var, width=12).pack(fill="x", pady=(0, 5))
+                var = tk.StringVar(value=default)
+                ttk.Entry(left, textvariable=var, width=12).pack(fill="x", pady=(0, 10 if i == 7 else 5))
             self.vars.append(var)
 
-        ttk.Button(left, text="Применить", command=self.apply).pack(fill="x", pady=10)
+        ttk.Button(left, text="Применить", command=self.apply).pack(fill="x", pady=(10, 0))
 
         # Правая панель
         right = ttk.Frame(bottom)
@@ -128,164 +144,219 @@ class TriangleApp:
         self.canvas = tk.Canvas(canvas_frame, bg="white")
         self.canvas.pack(fill="both", expand=True)
 
-        # Кнопки файлов
+        # Панель файлов
         file_frame = ttk.Frame(main)
         file_frame.pack(fill="x", pady=(10, 0))
         ttk.Button(file_frame, text="Сохранить", command=self.save).pack(side="left", padx=2)
         ttk.Button(file_frame, text="Загрузить", command=self.load).pack(side="left", padx=2)
 
+    # === Основные операции ===
     def add_triangle(self, tri):
         self.triangles.append(tri)
 
     def add(self):
         try:
-            pts = [(float(self.vars[i].get()), float(self.vars[i + 1].get())) for i in range(0, 6, 2)]
-            if abs((pts[0][0] * (pts[1][1] - pts[2][1]) + pts[1][0] * (pts[2][1] - pts[0][1]) + pts[2][0] * (
-                    pts[0][1] - pts[1][1]))) < 1e-9:
-                messagebox.showerror("Ошибка", "Точки на одной прямой!")
+            points = [(float(self.vars[i].get()), float(self.vars[i + 1].get())) for i in range(0, 6, 2)]
+            if abs((points[0][0] * (points[1][1] - points[2][1]) + points[1][0] * (points[2][1] - points[0][1]) +
+                    points[2][0] * (points[0][1] - points[1][1]))) < 1e-9:
+                messagebox.showerror("Ошибка", "Точки лежат на одной прямой!")
                 return
-            self.add_triangle(Triangle(pts, self.vars[6].get(), self.vars[7].get()))
-            self.update_list();
+            self.add_triangle(Triangle(points, self.vars[6].get(), self.vars[7].get()))
+            self.update_list()
             self.draw()
         except:
             messagebox.showerror("Ошибка", "Некорректные данные")
-
-    def copy(self):
-        if self.selected == -1: return messagebox.showwarning("Предупреждение", "Выберите треугольник")
-        self.add_triangle(self.triangles[self.selected].copy())
-        self.update_list();
-        self.draw()
 
     def delete(self):
-        if self.selected == -1: return messagebox.showwarning("Предупреждение", "Выберите треугольник")
+        if self.selected == -1:
+            messagebox.showwarning("Предупреждение", "Выберите треугольник")
+            return
         del self.triangles[self.selected]
         self.selected = min(self.selected, len(self.triangles) - 1)
-        self.update_list();
+        self.update_list()
         self.draw()
 
-    def modify(self):
-        if self.selected == -1: return messagebox.showwarning("Предупреждение", "Выберите треугольник")
+    def move_dialog(self):
+        if self.selected == -1:
+            messagebox.showwarning("Предупреждение", "Выберите треугольник")
+            return
 
-        d = tk.Toplevel(self.root)
-        d.title("Изменение");
-        d.geometry("250x150")
-        d.transient(self.root);
-        d.grab_set()
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Переместить треугольник")
+        dialog.geometry("300x150")
+        dialog.transient(self.root)
+        dialog.grab_set()
 
-        ttk.Label(d, text="Действие:").pack()
-        op = ttk.Combobox(d, values=["Переместить", "Изм.размер", "Изм.цвет"], state="readonly")
-        op.pack();
-        op.set("Переместить")
+        ttk.Label(dialog, text="Смещение по X:").pack(pady=5)
+        dx_var = tk.StringVar(value="0")
+        dx_entry = ttk.Entry(dialog, textvariable=dx_var, width=15)
+        dx_entry.pack()
 
-        ttk.Label(d, text="Параметр 1:").pack()
-        p1 = ttk.Entry(d);
-        p1.pack()
+        ttk.Label(dialog, text="Смещение по Y:").pack(pady=5)
+        dy_var = tk.StringVar(value="0")
+        dy_entry = ttk.Entry(dialog, textvariable=dy_var, width=15)
+        dy_entry.pack()
 
-        ttk.Label(d, text="Параметр 2:").pack()
-        p2 = ttk.Entry(d);
-        p2.pack()
-
-        def apply():
+        def apply_move():
             try:
-                t = self.triangles[self.selected]
-                if op.get() == "Переместить":
-                    t.move(float(p1.get()), float(p2.get()))
-                elif op.get() == "Изм.размер":
-                    t.resize(float(p1.get()))
-                else:
-                    t.recolor(p1.get() or None)
-                self.update_list();
-                self.draw();
-                d.destroy()
+                dx = float(dx_var.get())
+                dy = float(dy_var.get())
+
+                triangle = self.triangles[self.selected]
+                triangle.move(dx, dy)
+
+                self.update_list()
+                self.draw()
+                dialog.destroy()
+
+                messagebox.showinfo("Успех", f"Треугольник перемещен на ({dx}, {dy})")
             except:
-                messagebox.showerror("Ошибка", "Некорректные данные")
+                messagebox.showerror("Ошибка", "Введите корректные числовые значения")
 
-        ttk.Button(d, text="OK", command=apply).pack(pady=10)
-
-    def check(self):
-        if self.selected == -1: return messagebox.showwarning("Предупреждение", "Выберите треугольник")
-        inters = [i for i, t in enumerate(self.triangles) if
-                  i != self.selected and self.triangles[self.selected].intersects(t)]
-        if inters:
-            messagebox.showinfo("Пересечения", f"Пересекается с: {', '.join(self.triangles[i].name for i in inters)}")
-        else:
-            messagebox.showinfo("Пересечения", "Нет пересечений")
+        ttk.Button(dialog, text="Применить", command=apply_move).pack(pady=10)
 
     def apply(self):
-        if self.selected == -1: return messagebox.showwarning("Предупреждение", "Выберите треугольник")
+        if self.selected == -1:
+            messagebox.showwarning("Предупреждение", "Выберите треугольник")
+            return
+
         try:
-            pts = [(float(self.vars[i].get()), float(self.vars[i + 1].get())) for i in range(0, 6, 2)]
-            if abs((pts[0][0] * (pts[1][1] - pts[2][1]) + pts[1][0] * (pts[2][1] - pts[0][1]) + pts[2][0] * (
-                    pts[0][1] - pts[1][1]))) < 1e-9:
-                messagebox.showerror("Ошибка", "Точки на одной прямой!")
+            points = [(float(self.vars[i].get()), float(self.vars[i + 1].get())) for i in range(0, 6, 2)]
+            if abs((points[0][0] * (points[1][1] - points[2][1]) + points[1][0] * (points[2][1] - points[0][1]) +
+                    points[2][0] * (points[0][1] - points[1][1]))) < 1e-9:
+                messagebox.showerror("Ошибка", "Точки лежат на одной прямой!")
                 return
-            t = self.triangles[self.selected]
-            t.points, t.color, t.name = pts, self.vars[6].get(), self.vars[7].get()
-            self.update_list();
+
+            triangle = self.triangles[self.selected]
+            triangle.points = points
+            triangle.color = self.vars[6].get()
+            triangle.name = self.vars[7].get()
+
+            self.update_list()
             self.draw()
+
+            messagebox.showinfo("Успех", "Изменения применены")
         except:
             messagebox.showerror("Ошибка", "Некорректные данные")
 
-    def on_select(self, e):
+    # === Основные функции ===
+    def check_intersections(self):
+        if self.selected == -1:
+            messagebox.showwarning("Предупреждение", "Выберите треугольник")
+            return
+
+        intersecting = []
+        selected_triangle = self.triangles[self.selected]
+
+        for i, triangle in enumerate(self.triangles):
+            if i != self.selected and selected_triangle.intersects(triangle):
+                intersecting.append(triangle.name)
+
+        if intersecting:
+            messagebox.showinfo("Пересечения",
+                                f"Треугольник '{selected_triangle.name}' пересекается с:\n" +
+                                "\n".join(intersecting))
+        else:
+            messagebox.showinfo("Пересечения",
+                                f"Треугольник '{selected_triangle.name}' не пересекается с другими")
+
+    def recolor_selected(self):
+        if self.selected == -1:
+            messagebox.showwarning("Предупреждение", "Выберите треугольник")
+            return
+
+        triangle = self.triangles[self.selected]
+        triangle.recolor()
+        self.update_list()
+        self.draw()
+        messagebox.showinfo("Раскраска", f"Треугольник '{triangle.name}' перекрашен в цвет {triangle.color}")
+
+    # === Вспомогательные методы ===
+    def on_select(self, event):
         if self.listbox.curselection():
             self.selected = self.listbox.curselection()[0]
-            t = self.triangles[self.selected]
-            for i, (x, y) in enumerate(t.points):
-                self.vars[i * 2].set(str(x));
+            triangle = self.triangles[self.selected]
+
+            for i, (x, y) in enumerate(triangle.points):
+                self.vars[i * 2].set(str(x))
                 self.vars[i * 2 + 1].set(str(y))
-            self.vars[6].set(t.color);
-            self.vars[7].set(t.name)
+            self.vars[6].set(triangle.color)
+            self.vars[7].set(triangle.name)
 
     def update_list(self):
         self.listbox.delete(0, tk.END)
-        for t in self.triangles:
-            cx, cy = t.get_center()
-            self.listbox.insert(tk.END, f"{t.name} ({cx:.0f},{cy:.0f})")
+        for triangle in self.triangles:
+            cx, cy = triangle.get_center()
+            self.listbox.insert(tk.END, f"{triangle.name} ({cx:.0f},{cy:.0f})")
 
     def draw(self):
         self.canvas.delete("all")
-        for t in self.triangles:
-            points = [c for p in t.points for c in p]
-            self.canvas.create_polygon(points, fill=t.color, outline="black", width=2)
-            for x, y in t.points: self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="black")
-            cx, cy = t.get_center()
-            self.canvas.create_text(cx, cy - 15, text=t.name, font=("Arial", 9))
+        for triangle in self.triangles:
+            points = [coord for point in triangle.points for coord in point]
+            self.canvas.create_polygon(points, fill=triangle.color, outline="black", width=2)
+
+            for x, y in triangle.points:
+                self.canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="black")
+
+            cx, cy = triangle.get_center()
+            self.canvas.create_text(cx, cy - 15, text=triangle.name, font=("Arial", 9))
 
     def save(self):
-        f = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV", "*.csv")])
-        if f:
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if filename:
             try:
-                with open(f, 'w', encoding='utf-8') as file:
-                    file.writelines(t.get_info() + '\n' for t in self.triangles)
-                messagebox.showinfo("Успех", "Сохранено")
-            except:
-                messagebox.showerror("Ошибка", "Ошибка сохранения")
+                with open(filename, 'w', encoding='utf-8') as file:
+                    for triangle in self.triangles:
+                        file.write(triangle.get_info() + '\n')
+                messagebox.showinfo("Успех", "Файл успешно сохранен")
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось сохранить файл: {str(e)}")
 
     def load(self):
-        f = filedialog.askopenfilename(filetypes=[("CSV", "*.csv")])
-        if f:
+        filename = filedialog.askopenfilename(
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if filename:
             try:
-                with open(f, 'r', encoding='utf-8') as file:
+                with open(filename, 'r', encoding='utf-8') as file:
                     lines = file.readlines()
-                new_tris = []
-                for line in lines:
-                    parts = line.strip().split(',')
-                    if len(parts) == 8:
-                        try:
-                            pts = [(float(parts[i]), float(parts[i + 1])) for i in range(1, 6, 2)]
-                            if abs((pts[0][0] * (pts[1][1] - pts[2][1]) + pts[1][0] * (pts[2][1] - pts[0][1]) + pts[2][
-                                0] * (pts[0][1] - pts[1][1]))) > 1e-9:
-                                new_tris.append(Triangle(pts, parts[7], parts[0]))
-                        except:
-                            pass
-                if new_tris:
-                    self.triangles = new_tris
+
+                new_triangles = []
+                for i, line in enumerate(lines, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    parts = line.split(',')
+                    if len(parts) != 8:
+                        continue
+
+                    try:
+                        name = parts[0]
+                        points = [(float(parts[j]), float(parts[j + 1])) for j in range(1, 6, 2)]
+                        color = parts[7]
+
+                        if abs((points[0][0] * (points[1][1] - points[2][1]) +
+                                points[1][0] * (points[2][1] - points[0][1]) +
+                                points[2][0] * (points[0][1] - points[1][1]))) > 1e-9:
+                            new_triangles.append(Triangle(points, color, name))
+                    except:
+                        continue
+
+                if new_triangles:
+                    self.triangles = new_triangles
                     self.selected = -1
-                    self.update_list();
+                    self.update_list()
                     self.draw()
-                    messagebox.showinfo("Успех", "Загружено")
-            except:
-                messagebox.showerror("Ошибка", "Ошибка загрузки")
+                    messagebox.showinfo("Успех", f"Загружено {len(new_triangles)} треугольников")
+                else:
+                    messagebox.showwarning("Предупреждение", "Не удалось загрузить ни одного треугольника")
+
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Не удалось загрузить файл: {str(e)}")
 
 
 if __name__ == "__main__":
